@@ -1372,7 +1372,7 @@ class Session(object):
         for future in futures:
             future.result()
 
-    def execute(self, query, parameters=None, timeout=_NOT_SET, trace=False):
+    def execute(self, query, parameters=None, timeout=_NOT_SET, trace=False, row_factory=None):
         """
         Execute the given query and synchronously wait for the response.
 
@@ -1409,7 +1409,7 @@ class Session(object):
                 "The query argument must be an instance of a subclass of "
                 "cassandra.query.Statement when trace=True")
 
-        future = self.execute_async(query, parameters, trace)
+        future = self.execute_async(query, parameters, trace, row_factory)
         try:
             result = future.result(timeout)
         finally:
@@ -1421,7 +1421,7 @@ class Session(object):
 
         return result
 
-    def execute_async(self, query, parameters=None, trace=False):
+    def execute_async(self, query, parameters=None, trace=False, row_factory=None):
         """
         Execute the given query and return a :class:`~.ResponseFuture` object
         which callbacks may be attached to for asynchronous response
@@ -1458,11 +1458,11 @@ class Session(object):
             ...     log.exception("Operation failed:")
 
         """
-        future = self._create_response_future(query, parameters, trace)
+        future = self._create_response_future(query, parameters, trace, row_factory)
         future.send_request()
         return future
 
-    def _create_response_future(self, query, parameters, trace):
+    def _create_response_future(self, query, parameters, trace, row_factory):
         """ Returns the ResponseFuture before calling send_request() on it """
 
         prepared_statement = None
@@ -1514,7 +1514,7 @@ class Session(object):
 
         return ResponseFuture(
             self, message, query, self.default_timeout, metrics=self._metrics,
-            prepared_statement=prepared_statement)
+            prepared_statement=prepared_statement, row_factory=row_factory)
 
     def prepare(self, query):
         """
@@ -2580,9 +2580,9 @@ class ResponseFuture(object):
     _metrics = None
     _paging_state = None
 
-    def __init__(self, session, message, query, default_timeout=None, metrics=None, prepared_statement=None):
+    def __init__(self, session, message, query, default_timeout=None, metrics=None, prepared_statement=None, row_factory=None):
         self.session = session
-        self.row_factory = session.row_factory
+        self.row_factory = row_factory or session.row_factory
         self.message = message
         self.query = query
         self.default_timeout = default_timeout
